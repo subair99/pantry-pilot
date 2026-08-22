@@ -1,0 +1,3 @@
+# Title: Building PantryPilot: Multi-Agent Orchestration with Strands SDK and Bedrock AgentCore
+
+In this post, I'll walk through how we built PantryPilot, an autonomous back-office agent for food banks, using the Strands Agents SDK and Amazon Bedrock AgentCore...

@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///home/user/pantry-pilot/frontend/app/page.tsx"],"sourcesContent":["export default function Home() {\n  return (\n    <main className=\"flex min-h-screen flex-col items-center justify-center p-24\">\n      <h1 className=\"text-4xl font-bold mb-4\">PantryPilot Dashboard</h1>\n      <p className=\"text-gray-600\">Quiet until it matters. Awaiting agent events...</p>\n    </main>\n  )\n}\n"],"names":["Home","className"],"mappings":";;;;;;AAAe,SAASA;IACtB,qBACE,8OAAC;QAAKC,WAAU;;0BACd,8OAAC;gBAAGA,WAAU;0BAA0B;;;;;;0BACxC,8OAAC;gBAAEA,WAAU;0BAAgB;;;;;;;;;;;;AAGnC"}}]
+}
