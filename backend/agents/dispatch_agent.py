@@ -1,34 +1,72 @@
 # backend/agents/dispatch_agent.py
 import os
-import random
+from tools.twilio_mcp import send_volunteer_sms
+from tools.email_mcp import send_donor_receipt
+from utils.logger import dispatch_logger, log_tool_execution
 
-# Mock volunteer database for the demo
-VOLUNTEERS = [
-    {"name": "Sarah Jenkins", "phone": "+1-555-0101", "availability": "Evenings"},
-    {"name": "Mike Ross", "phone": "+1-555-0102", "availability": "Weekends"},
-    {"name": "Elena Gilbert", "phone": "+1-555-0103", "availability": "Mornings"},
+# Mock Volunteer Database (Simulates a real DB query for the demo)
+VOLUNTEER_DB = [
+    {"name": "Elena Gilbert", "phone": "+15550103", "preferred_times": ["morning", "evening"]},
+    {"name": "Sarah Jenkins", "phone": "+15550101", "preferred_times": ["afternoon", "evening"]},
+    {"name": "Mike Ross", "phone": "+15550102", "preferred_times": ["morning", "afternoon"]},
 ]
 
-def dispatch_volunteer(donation_id: str, dropoff_time: str, items: list) -> dict:
+def get_best_volunteer(dropoff_time: str) -> dict:
     """
-    Dispatch Agent: Selects the best available volunteer and drafts an SMS.
-    (Mocked for demo reliability; swap with Twilio API in production).
+    Simulates querying a volunteer database to find the best match 
+    based on dropoff time. Ensures deterministic, realistic routing for the demo.
     """
-    print(f" Dispatch Agent triggered for {donation_id}")
+    time_lower = dropoff_time.lower()
     
-    # Simulate agent logic: pick a random available volunteer
-    volunteer = random.choice(VOLUNTEERS)
+    # Simple matching logic for the demo
+    if "morning" in time_lower or "8 am" in time_lower or "9 am" in time_lower:
+        return VOLUNTEER_DB[0] # Elena (Morning)
+    elif "afternoon" in time_lower or "2 pm" in time_lower or "5 pm" in time_lower:
+        return VOLUNTEER_DB[2] # Mike (Afternoon)
+    elif "evening" in time_lower or "6 pm" in time_lower:
+        return VOLUNTEER_DB[1] # Sarah (Evening)
     
-    # Draft the SMS message
+    # Fallback for unmatched times
+    return VOLUNTEER_DB[0]
+
+def dispatch_volunteer(donation_id: str, dropoff_time: str, items: list, quantity: int, donor_name: str, donor_email: str = None, donor_phone: str = None) -> dict:
+    """
+    Dispatch Agent: Routes volunteer SMS based on availability and sends 
+    donor tax receipts if an email was provided.
+    """
+    dispatch_logger.info(f"Dispatch Agent triggered for {donation_id}")
+    
+    # 1. Query the "database" for the best available volunteer
+    volunteer = get_best_volunteer(dropoff_time)
+    
+    # 2. Draft the SMS message
     item_summary = ", ".join(items)
     drafted_sms = (
         f"Hi {volunteer['name']}! PantryPilot here. We have a donation of {item_summary} "
         f"dropping off at {dropoff_time}. Can you cover the intake shift? Reply YES to confirm."
     )
     
+    # 3. Execute the SMS MCP Tool (Always send to volunteer to coordinate pickup)
+    sms_result = send_volunteer_sms(to_phone=volunteer["phone"], message=drafted_sms)
+    
+    # 4. Execute the Email MCP Tool (ONLY if the donor provided an email address)
+    email_result = {"status": "skipped", "reason": "No donor email provided (SMS donation)"}
+    if donor_email:
+        email_result = send_donor_receipt(
+            to_email=donor_email,
+            donor_name=donor_name,
+            items=items,
+            quantity=quantity
+        )
+    
     return {
         "volunteer_name": volunteer["name"],
         "volunteer_phone": volunteer["phone"],
         "drafted_sms": drafted_sms,
-        "status": "sent_to_approval_queue" # In a real app, this would go to another HITL gate
+        "sms_response": sms_result,
+        "donor_email": donor_email,
+        "email_subject": email_result.get("subject", "N/A"),
+        "email_body_preview": email_result.get("body_preview", "Skipped: No email provided"),
+        "email_response": email_result,
+        "status": "sent"
     }

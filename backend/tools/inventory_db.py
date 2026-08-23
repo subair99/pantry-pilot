@@ -1,31 +1,32 @@
 # backend/tools/inventory_db.py
-from typing import List, Dict, Any
+import uuid
 
-# In-memory "database" for hackathon speed
-inventory_db: List[Dict[str, Any]] = []
+# In-memory "database" for the hackathon demo
+DONATIONS_DB = []
 
-def log_donation(donor_name: str, items: List[str], quantity: int, notes: str = "") -> str:
-    """Logs a new donation into the pantry inventory system."""
-    donation_id = f"DON-{len(inventory_db) + 1:04d}"
-    record = {
+def log_donation(donor_name: str, items: list, quantity: int, notes: str, donor_email: str = None, donor_phone: str = None) -> str:
+    """Logs a new donation to the in-memory database."""
+    donation_id = f"DON-{str(uuid.uuid4())[:4].upper()}"
+    DONATIONS_DB.append({
         "id": donation_id,
         "donor": donor_name,
         "items": items,
         "quantity": quantity,
         "notes": notes,
-        "status": "pending_approval"
-    }
-    inventory_db.append(record)
-    return f"Successfully logged donation {donation_id}. Awaiting human approval."
+        "donor_email": donor_email,
+        "donor_phone": donor_phone,
+        "status": "pending"
+    })
+    return f"Successfully logged donation {donation_id}"
 
-def get_pending_donations() -> List[Dict[str, Any]]:
-    """Retrieves all donations awaiting human approval."""
-    return [item for item in inventory_db if item["status"] == "pending_approval"]
+def get_pending_donations():
+    """Fetches all donations that are still pending approval."""
+    return [d for d in DONATIONS_DB if d["status"] == "pending"]
 
-def approve_donation(donation_id: str) -> str:
-    """Approves a pending donation, making it active inventory."""
-    for item in inventory_db:
-        if item["id"] == donation_id:
-            item["status"] = "approved"
-            return f"Donation {donation_id} approved and added to active inventory."
-    return f"Donation {donation_id} not found."
+def approve_donation(donation_id: str):
+    """Marks a donation as approved."""
+    for d in DONATIONS_DB:
+        if d["id"] == donation_id:
+            d["status"] = "approved"
+            return f"Donation {donation_id} approved and logged."
+    return "Donation not found."

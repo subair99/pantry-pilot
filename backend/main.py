@@ -1,13 +1,24 @@
 # backend/main.py
+import json
+import os
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from agents.intake_agent import process_incoming_donation
-from tools.inventory_db import get_pending_donations, approve_donation
-from agents.dispatch_agent import dispatch_volunteer # <-- Add this
 
+# Import the central orchestrator and the DB tool
+from agents.orchestrator import orchestrator
+from tools.inventory_db import get_pending_donations
+
+# Import observability tools
+from utils.metrics import metrics
+from utils.tracing import tracer
+
+# 1. CREATE THE APP FIRST
 app = FastAPI(title="PantryPilot Agent API")
 
+# 2. ADD MIDDLEWARE
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,41 +27,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 3. DEFINE MODELS
 class DonationRequest(BaseModel):
     message: str
+    donor_email: str | None = None
+    donor_phone: str | None = None
 
+# 4. DEFINE ROUTES
 @app.get("/")
 def read_root():
     return {"message": "PantryPilot Agent Orchestrator is running"}
 
 @app.post("/api/process-donation")
 def process_donation(request: DonationRequest):
-    result = process_incoming_donation(request.message)
-    return {"status": "success", "agent_response": result}
+    """Receives a raw SMS/text and routes it to the Intake Agent via the Orchestrator."""
+    start = time.time()
+    span = tracer.start_span("process_donation", "Orchestrator")
+    
+    try:
+        # Pass the optional contact info to the orchestrator
+        result = orchestrator.process_incoming_message(
+            request.message, 
+            donor_email=request.donor_email, 
+            donor_phone=request.donor_phone
+        )
+        span.finish("success")
+        metrics.record_request("IntakeAgent", True, (time.time() - start) * 1000)
+        return result
+    except Exception as e:
+        span.finish("error", {"error": str(e)})
+        metrics.record_request("IntakeAgent", False, (time.time() - start) * 1000)
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/pending-approvals")
 def get_pending():
+    """Fetches items awaiting Human-in-the-Loop approval."""
     return {"pending": get_pending_donations()}
 
 @app.post("/api/approve/{donation_id}")
 def approve(donation_id: str):
-    # 1. Approve the donation in the DB
-    approval_msg = approve_donation(donation_id)
+    """Human approves the action. Orchestrator triggers Dispatch & Logistics agents."""
+    return orchestrator.execute_post_approval_workflow(donation_id)
+
+@app.get("/api/logs")
+def get_agent_logs():
+    """Fetches the structured JSON logs from the backend for the AgentLog UI."""
+    log_file = os.path.join(os.path.dirname(__file__), "logs", "agent_activity.jsonl")
     
-    # 2. Find the donation details to pass to the Dispatch Agent
-    donation = next((d for d in get_pending_donations() if d["id"] == donation_id), None)
-    
-    dispatch_info = None
-    if donation:
-        # 3. Trigger the Dispatch Agent
-        dispatch_info = dispatch_volunteer(
-            donation_id=donation["id"],
-            dropoff_time=donation["notes"].replace("Dropoff at ", ""),
-            items=donation["items"]
-        )
+    if not os.path.exists(log_file):
+        return {"logs": []}
         
-    return {
-        "status": "success", 
-        "message": approval_msg,
-        "dispatch": dispatch_info # <-- Send this to the frontend
-    }
+    logs = []
+    try:
+        with open(log_file, "r") as f:
+            for line in f:
+                if line.strip():
+                    logs.append(json.loads(line))
+        # Return the most recent 50 logs, reversed so the newest appears first in the UI
+        return {"logs": logs[-50:][::-1]}
+    except Exception as e:
+        return {"logs": [], "error": str(e)}
+
+@app.get("/api/traces")
+def get_traces():
+    """Fetches recent agent traces for the Observability Dashboard."""
+    return {"traces": tracer.get_recent_traces()}
+
+@app.get("/api/metrics")
+def get_metrics():
+    """Fetches system metrics for the Observability Dashboard."""
+    return {"metrics": metrics.get_summary()}
