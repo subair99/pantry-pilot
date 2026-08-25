@@ -26,8 +26,6 @@ def process_queue(orchestrator, transcribe_func):
         if file.is_file() and file.suffix == '.txt':
             try:
                 text = file.read_text(encoding="utf-8")
-                
-                # Extract phone number from filename (e.g., "+15551112222_sarah.txt" -> "+15551112222")
                 donor_phone = file.stem.split('_')[0] if file.stem.startswith('+') else None
                 
                 orchestrator.process_incoming_message(
@@ -42,13 +40,12 @@ def process_queue(orchestrator, transcribe_func):
             except Exception as e:
                 orchestrator_logger.error(f"Error processing SMS {file.name}: {e}")
 
-    # 2. Process Email (Text files, filename can be donor@example.com.txt)
+    # 2. Process Email (Text files)
     email_dir = BASE_DIR / "email" / "new_email"
     for file in sorted(email_dir.iterdir()):
         if file.is_file() and file.suffix == '.txt':
             try:
                 text = file.read_text(encoding="utf-8")
-                # Use filename as email if it contains '@', otherwise None
                 donor_email = file.stem if "@" in file.stem else None
                 orchestrator.process_incoming_message(text, donor_email=donor_email, source="Email")
                 shutil.move(str(file), str(BASE_DIR / "email" / "processed_email" / file.name))
@@ -65,7 +62,7 @@ def process_queue(orchestrator, transcribe_func):
                 # Transcribe using the provided function
                 result = transcribe_func(str(file))
                 
-                # Extract phone number from filename (e.g., "+14155550198_marcus.wav" -> "+14155550198")
+                # Extract phone number from filename
                 donor_phone = file.stem.split('_')[0] if file.stem.startswith('+') else None
                 
                 if result["status"] == "success":
@@ -79,10 +76,12 @@ def process_queue(orchestrator, transcribe_func):
                         donor_phone=donor_phone,
                         source="Voice"
                     )
+                    # ✅ FIX: ONLY move the file if transcription was successful!
+                    shutil.move(str(file), str(BASE_DIR / "voice" / "processed_voice" / file.name))
                 else:
                     orchestrator_logger.warning(f"Voice transcription failed for {file.name}: {result.get('error_message')}")
+                    #  Do NOT move the file if it failed, so it stays in 'new_voice' for retry!
                 
-                shutil.move(str(file), str(BASE_DIR / "voice" / "processed_voice" / file.name))
                 processed_count += 1
                 orchestrator_logger.info(f"Processed Voice: {file.name}")
             except Exception as e:
