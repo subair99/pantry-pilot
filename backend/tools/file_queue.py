@@ -64,8 +64,21 @@ def process_queue(orchestrator, transcribe_func):
             try:
                 # Transcribe using the provided function
                 result = transcribe_func(str(file))
+                
+                # Extract phone number from filename (e.g., "+14155550198_marcus.wav" -> "+14155550198")
+                donor_phone = file.stem.split('_')[0] if file.stem.startswith('+') else None
+                
                 if result["status"] == "success":
-                    orchestrator.process_incoming_message(result["transcribed_text"], source="Voice")
+                    # DEBUG: Print what was transcribed
+                    print(f"\n🎤 DEBUG - File: {file.name}")
+                    print(f" Transcribed Text: {result['transcribed_text']}")
+                    print(f"📞 Extracted Phone: {donor_phone}\n")
+                    
+                    orchestrator.process_incoming_message(
+                        result["transcribed_text"], 
+                        donor_phone=donor_phone,
+                        source="Voice"
+                    )
                 else:
                     orchestrator_logger.warning(f"Voice transcription failed for {file.name}: {result.get('error_message')}")
                 
