@@ -80,9 +80,9 @@ export default function Home() {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
-          className="flex justify-between items-center mb-10"
+          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 mb-10"
         >
-          <div>
+          <div className="flex-1">
             <motion.h1 className="text-4xl font-extrabold text-gray-900 flex items-center gap-3">
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
@@ -92,7 +92,7 @@ export default function Home() {
               </motion.div>
               PantryPilot Dashboard
             </motion.h1>
-            <p className="text-gray-600 mt-2 text-lg">Automated file-queue processing (SMS → Email → Voice)</p>
+            <p className="text-gray-600 mt-2 text-lg whitespace-nowrap">Automated file-queue processing (SMS → Email → Voice)</p>
           </div>
           
           <div className="flex items-center gap-4">

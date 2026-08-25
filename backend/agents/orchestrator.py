@@ -8,6 +8,7 @@ from agents.logistics_agent import analyze_inventory_health
 
 # Import tools and utilities
 from tools.inventory_db import get_donation, get_pending_donations, approve_donation
+from tools.receipt_generator import generate_tax_receipt
 from utils.logger import orchestrator_logger, log_agent_action, log_hitl_event
 
 class PantryOrchestrator:
@@ -36,10 +37,18 @@ class PantryOrchestrator:
         # 2. Approve it
         approval_msg = approve_donation(donation_id)
         
+        # 3. Generate Tax Receipt
+        try:
+            receipt_path = generate_tax_receipt(donation, donation_id)
+            orchestrator_logger.info(f"Tax receipt generated successfully: {receipt_path}")
+        except Exception as e:
+            orchestrator_logger.error(f"Failed to generate tax receipt: {e}")
+            receipt_path = None
+        
         dispatch_info = None
         logistics_info = None
         
-        # 3. Trigger Dispatch Agent
+        # 4. Trigger Dispatch Agent
         try:
             dispatch_info = dispatch_volunteer(
                 donation_id=donation["id"],
@@ -55,7 +64,7 @@ class PantryOrchestrator:
             orchestrator_logger.error(f"Dispatch Agent failed: {e}")
             dispatch_info = {"error": "Dispatch agent failed, but donation was logged."}
             
-        # 4. Trigger Logistics Agent
+        # 5. Trigger Logistics Agent
         try:
             logistics_info = analyze_inventory_health(
                 new_items=donation["items"],
@@ -69,6 +78,7 @@ class PantryOrchestrator:
         return {
             "status": "success", 
             "message": approval_msg,
+            "receipt_path": receipt_path,
             "dispatch": dispatch_info,
             "logistics": logistics_info
         }

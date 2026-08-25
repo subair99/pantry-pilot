@@ -9,7 +9,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 # Import the central orchestrator and the DB tool
@@ -77,9 +77,15 @@ def scan_queue():
     try:
         count = process_queue(orchestrator, transcribe_voice_to_text)
         span.finish("success")
+        
+        # ✅ RECORD METRICS HERE
+        latency = (time.time() - start) * 1000
+        metrics.record_request("QueueProcessor", True, latency)
+        
         return {"status": "success", "processed_count": count}
     except Exception as e:
         span.finish("error", {"error": str(e)})
+        metrics.record_request("QueueProcessor", False, (time.time() - start) * 1000)
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/pending-approvals")
@@ -90,7 +96,35 @@ def get_pending():
 @app.post("/api/approve/{donation_id}")
 def approve(donation_id: str):
     """Human approves the action. Orchestrator triggers Dispatch & Logistics agents."""
-    return orchestrator.execute_post_approval_workflow(donation_id)
+    start = time.time()
+    span = tracer.start_span("approve_donation", "Orchestrator")
+    try:
+        result = orchestrator.execute_post_approval_workflow(donation_id)
+        span.finish("success")
+        
+        # ✅ RECORD METRICS HERE
+        latency = (time.time() - start) * 1000
+        metrics.record_request("ApprovalWorkflow", True, latency)
+        
+        return result
+    except Exception as e:
+        span.finish("error", {"error": str(e)})
+        metrics.record_request("ApprovalWorkflow", False, (time.time() - start) * 1000)
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/download-receipt/{donation_id}")
+def download_receipt(donation_id: str):
+    """Downloads the tax receipt PDF for an approved donation."""
+    receipt_path = Path(__file__).parent / "generated_receipts" / f"receipt_{donation_id}.pdf"
+    
+    if not receipt_path.exists():
+        return {"status": "error", "message": "Receipt not found"}
+    
+    return FileResponse(
+        path=str(receipt_path),
+        media_type="application/pdf",
+        filename=f"tax_receipt_{donation_id}.pdf"
+    )
 
 @app.get("/api/logs")
 def get_agent_logs():
