@@ -7,6 +7,7 @@ dependencies = [
     "boto3>=1.43.78",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "openai>=3.3.1",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
     "strands-agents>=1.53.0",

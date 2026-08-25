@@ -2,11 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RefreshCw, Package } from "lucide-react";
+import { RefreshCw, Package, Inbox } from "lucide-react";
 import { motion } from "framer-motion";
 import DecisionCard from "../components/DecisionCard";
 import StatusBadge, { AgentStatus } from "../components/StatusBadge";
-import ObservabilityDashboard from "../components/ObservabilityDashboard"; // <-- Added import
+import ObservabilityDashboard from "../components/ObservabilityDashboard";
 
 interface Donation {
   id: string;
@@ -15,6 +15,9 @@ interface Donation {
   quantity: number;
   notes: string;
   status: string;
+  donor_email?: string;
+  donor_phone?: string;
+  source?: string;
 }
 
 export default function Home() {
@@ -24,7 +27,7 @@ export default function Home() {
   const fetchPending = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/pending-approvals");
+      const res = await fetch("http://localhost:8000/api/pending-approvals");
       const data = await res.json();
       setPendingDonations(data.pending || []);
     } catch (error) {
@@ -34,11 +37,31 @@ export default function Home() {
     }
   };
 
+  const processQueueAndRefresh = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Tell backend to scan folders, process new files, and move them to processed_*
+      const res = await fetch("http://localhost:8000/api/scan-queue", { method: "POST" });
+      const data = await res.json();
+      
+      if (data.status === "success") {
+        console.log(`Processed ${data.processed_count} items from queue.`);
+      }
+      
+      // 2. Fetch the newly created donations
+      await fetchPending();
+    } catch (error) {
+      console.error("Queue processing failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    // Only fetch pending items on load, don't process queue
     fetchPending();
   }, []);
 
-  // Determine the overall system status based on the data
   const systemStatus: AgentStatus = isLoading 
     ? "thinking" 
     : pendingDonations.length > 0 
@@ -51,9 +74,8 @@ export default function Home() {
       animate={{ opacity: 1 }}
       className="min-h-screen bg-gray-50 p-8"
     >
-      {/* Changed to max-w-4xl to give the observability dashboard a bit more breathing room */}
       <div className="max-w-4xl mx-auto">
-        {/* Animated Header with Status Badge */}
+        {/* Header */}
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -70,27 +92,47 @@ export default function Home() {
               </motion.div>
               PantryPilot Dashboard
             </motion.h1>
-            <p className="text-gray-600 mt-2 text-lg">Quiet until it matters. Review and approve agent actions.</p>
+            <p className="text-gray-600 mt-2 text-lg">Automated file-queue processing (SMS → Email → Voice)</p>
           </div>
           
-          {/* Status Badge and Refresh Button */}
           <div className="flex items-center gap-4">
             <StatusBadge status={systemStatus} />
             
             <motion.button 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={fetchPending}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm hover:shadow-md font-medium"
+              onClick={processQueueAndRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-sm hover:shadow-md font-medium disabled:opacity-50 transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
+              {isLoading ? "Processing Queue..." : "Process Queue & Refresh"}
             </motion.button>
           </div>
         </motion.div>
 
+        {/* Queue Instructions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm"
+        >
+          <h2 className="text-lg font-bold text-blue-900 mb-2 flex items-center gap-2">
+            <Inbox className="w-5 h-5" />
+            How to Add New Donations
+          </h2>
+          <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+            <li><strong>SMS:</strong> Drop a <code className="bg-blue-100 px-1 rounded">.txt</code> file into <code className="bg-blue-100 px-1 rounded">received_messages/sms/new_sms/</code></li>
+            <li><strong>Email:</strong> Drop a <code className="bg-blue-100 px-1 rounded">.txt</code> file (e.g., <code className="bg-blue-100 px-1 rounded">donor@email.com.txt</code>) into <code className="bg-blue-100 px-1 rounded">received_messages/email/new_email/</code></li>
+            <li><strong>Voice:</strong> Drop an audio file (<code className="bg-blue-100 px-1 rounded">.webm</code>, <code className="bg-blue-100 px-1 rounded">.wav</code>, <code className="bg-blue-100 px-1 rounded">.mp3</code>) into <code className="bg-blue-100 px-1 rounded">received_messages/voice/new_voice/</code></li>
+          </ul>
+          <p className="text-sm text-blue-700 mt-3 font-medium">
+            Click "Process Queue & Refresh" above to transcribe voice with Qwen, parse all messages, and move files to the processed folders.
+          </p>
+        </motion.div>
+
         {/* Content Area */}
-        {isLoading ? (
+        {isLoading && pendingDonations.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -116,8 +158,8 @@ export default function Home() {
             >
               <Package className="w-16 h-16 text-gray-300" />
             </motion.div>
-            <h3 className="text-lg font-semibold text-gray-900">All caught up!</h3>
-            <p className="text-gray-500 mt-1">No pending donations awaiting your approval.</p>
+            <h3 className="text-lg font-semibold text-gray-900">Queue Empty!</h3>
+            <p className="text-gray-500 mt-1">Drop files into the received_messages folders, then click Process Queue.</p>
           </motion.div>
         ) : (
           <motion.div
@@ -134,7 +176,7 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Observability Dashboard Section */}
+        {/* Observability Dashboard */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

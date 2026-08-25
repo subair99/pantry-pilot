@@ -4,7 +4,7 @@ import uuid
 # In-memory "database" for the hackathon demo
 DONATIONS_DB = []
 
-def log_donation(donor_name: str, items: list, quantity: int, notes: str, donor_email: str = None, donor_phone: str = None) -> str:
+def log_donation(donor_name: str, items: list, quantity: int, notes: str, donor_email: str = None, donor_phone: str = None, source: str = "SMS") -> str:
     """Logs a new donation to the in-memory database."""
     donation_id = f"DON-{str(uuid.uuid4())[:4].upper()}"
     DONATIONS_DB.append({
@@ -15,9 +15,17 @@ def log_donation(donor_name: str, items: list, quantity: int, notes: str, donor_
         "notes": notes,
         "donor_email": donor_email,
         "donor_phone": donor_phone,
+        "source": source,
         "status": "pending"
     })
     return f"Successfully logged donation {donation_id}"
+
+def get_donation(donation_id: str):
+    """Fetches a specific donation by ID, regardless of status."""
+    for d in DONATIONS_DB:
+        if d["id"] == donation_id:
+            return d
+    return None
 
 def get_pending_donations():
     """Fetches all donations that are still pending approval."""

@@ -1,147 +1,135 @@
 # backend/agents/intake_agent.py
 import os
 import json
-import re
+from pydantic import BaseModel, Field
+from openai import OpenAI
+# from strands import Agent  # <-- UNCOMMENT THIS LINE WHEN SWITCHING TO BEDROCK
+
 from tools.inventory_db import log_donation
-from tools.ocr_mcp import extract_donation_details
 from utils.guardrails import PantryGuardrails
 from utils.logger import intake_logger, log_agent_action, log_hitl_event, log_tool_execution
 from state.memory import memory
 
-def extract_info_from_message(message: str) -> dict:
-    """
-    Upgraded, bulletproof parser for the mock fallback.
-    Intelligently finds donor names at the beginning, middle, or end of the message.
-    """
-    message_lower = message.lower()
-    donor_name = "Anonymous Donor"
-    
-    # 1. Try matching "[Name]'s [Place]" (e.g., Mike's Farm, Sarah's Bakery)
-    name_match = re.search(r"([A-Z][a-z]+)'s\s+(?:Farm|Bakery|Market|Pantry|Garden)", message)
-    if name_match:
-        donor_name = name_match.group(1)
-        if "farm" in message_lower: donor_name += " (Farm)"
-        elif "bakery" in message_lower: donor_name += " (Local Bakery)"
-        elif "garden" in message_lower: donor_name += " (Community Garden)"
-    else:
-        # 2. Try matching "This is [Name]" or "from [Name]"
-        name_match = re.search(r'(?:this is|from)\s+([A-Z][a-z]+)', message)
-        if name_match:
-            donor_name = name_match.group(1)
-            if "bakery" in message_lower: donor_name += " (Local Bakery)"
-        else:
-            # 3. Try matching "[Name] from" at the start (e.g., "David from community garden")
-            name_match = re.search(r'^([A-Z][a-z]+)\s+from', message)
-            if name_match:
-                donor_name = name_match.group(1)
-                if "garden" in message_lower: donor_name += " (Community Garden)"
-            else:
-                # 4. Try matching "[Name] here" at the start (e.g., "Lisa here.")
-                name_match = re.search(r'^([A-Z][a-z]+)\s+here', message)
-                if name_match:
-                    donor_name = name_match.group(1)
-                else:
-                    # 5. Try matching email sign-offs like "Best, [Name]", "Regards, [Name]"
-                    name_match = re.search(r'(?:Best,|Regards,|Sincerely,)\s+([A-Z][a-zA-Z\s]+)', message)
-                    if name_match:
-                        donor_name = name_match.group(1).strip()
-                        if "pastor" in donor_name.lower(): 
-                            donor_name = "Pastor Mark"
-                        elif "amanda" in donor_name.lower():
-                            donor_name = "Amanda (Rotary Club)"
-    
-    # Extract Time
-    time_str = "5 PM today"
-    if "afternoon" in message_lower: time_str = "This Afternoon (approx. 2 PM)"
-    elif "morning" in message_lower: time_str = "This Morning (approx. 9 AM)"
-    elif "evening" in message_lower: time_str = "This Evening (approx. 6 PM)"
-    else:
-        time_match = re.search(r'at\s+(\d+\s*(?:AM|PM|am|pm))', message)
-        if time_match: time_str = time_match.group(1)
+# 1. Define the strict schema the LLM must output
+class DonationExtraction(BaseModel):
+    donor_name: str = Field(description="The name of the donor or organization (e.g., 'Jennifer', 'Mike (Farm)')")
+    items: list[str] = Field(description="List of donated items with quantities (e.g., ['40 trays of catering', '10 gallons of milk'])")
+    total_quantity: int = Field(description="The total numerical count of all items combined")
+    dropoff_time: str = Field(description="The proposed dropoff time (e.g., 'Today (flexible)', '5 PM')")
 
-    # Extract Items
-    item_pattern = r'(\d+)\s*(lbs?|pounds?|boxes?|bags?|loaves?|containers?|gallons?|trays?)\s+(?:of\s+)?(?:fresh\s+|organic\s+|untouched\s+)?(\w+)'
-    matches = re.findall(item_pattern, message_lower)
-    
-    items = []
-    quantity = 0
-    for count, unit, item in matches:
-        items.append(f"{count} {unit} of {item}")
-        quantity += int(count)
-    
-    # Fallback for simple mentions without units
-    if not items:
-        if "pasta" in message_lower: items.append("boxes of pasta"); quantity += 12
-        if "apples" in message_lower: items.append("lbs of apples"); quantity += 20
-        if "bread" in message_lower: items.append("loaves of bread"); quantity += 50
-        if "tomato" in message_lower: items.append("lbs of tomatoes"); quantity += 100
-        if "corn" in message_lower: items.append("lbs of corn"); quantity += 50
-        if "canned goods" in message_lower: items.append("canned goods"); quantity += 200
-        if "coats" in message_lower: items.append("winter coats"); quantity += 50
-        if "blankets" in message_lower: items.append("blankets"); quantity += 30
-        if "zucchini" in message_lower: items.append("lbs of zucchini"); quantity += 150
+# 2. Initialize the Qwen API Client (OpenAI-compatible)
+QWEN_API_KEY = os.getenv("QWEN_API_KEY")
+QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
 
-    return {
-        "donor_name": donor_name,
-        "items": items if items else ["miscellaneous items"],
-        "quantity": quantity if quantity > 0 else 10,
-        "dropoff_time": time_str
-    }
+if QWEN_API_KEY:
+    qwen_client = OpenAI(
+        api_key=QWEN_API_KEY,
+        base_url=QWEN_BASE_URL
+    )
+    LLM_AVAILABLE = True
+else:
+    intake_logger.warning("QWEN_API_KEY not found. LLM extraction disabled, using fallback.")
+    LLM_AVAILABLE = False
 
-def process_incoming_donation(raw_message: str, donor_email: str = None, donor_phone: str = None) -> str:
+def extract_info_with_llm(message: str) -> dict:
+    """Uses Qwen API with Pydantic structured output to perfectly parse text."""
+    try:
+        response = qwen_client.beta.chat.completions.parse(
+            model=QWEN_MODEL,
+            messages=[
+                {"role": "system", "content": "You are an expert logistics coordinator for a food bank. CRITICAL: You MUST extract ALL items mentioned. NEVER return an empty list for items. If the user says '100 lbs of tomatoes', return ['100 lbs of tomatoes']. Be concise and accurate."},
+                {"role": "user", "content": f"Extract the donation details from this message: '{message}'"}
+            ],
+            response_format=DonationExtraction
+        )
+        
+        parsed = response.choices[0].message.parsed
+        return {
+            "donor_name": parsed.donor_name or "Anonymous Donor",
+            "items": parsed.items or ["miscellaneous items"],
+            "quantity": parsed.total_quantity or 10,
+            "dropoff_time": parsed.dropoff_time or "5 PM today"
+        }
+    except Exception as e:
+        intake_logger.error(f"Qwen LLM extraction failed: {e}")
+        return None
+
+def process_incoming_donation(raw_message: str, donor_email: str = None, donor_phone: str = None, source: str = None) -> str:
     """Main entry point for the intake agent."""
     print(f"🤖 Intake Agent processing: {raw_message}")
     
+    # 1. Guardrail Check
     is_safe, safety_msg = PantryGuardrails.check_input_safety(raw_message)
     if not is_safe:
         log_hitl_event(intake_logger, "input_safety_check", "BLOCKED", {"reason": safety_msg})
         return safety_msg
 
-    if not os.getenv("AWS_ACCESS_KEY_ID") or not os.getenv("AWS_SECRET_ACCESS_KEY"):
-        print("⚠️ No AWS credentials found. Using smart mock parser.")
+    # 2. LLM Extraction (with Fallback for demo reliability)
+    if LLM_AVAILABLE:
+        print(f"✨ Using Qwen API ({QWEN_MODEL}) for structured extraction...")
+        mock_parsed = extract_info_with_llm(raw_message)
         
-        mock_parsed = extract_info_from_message(raw_message)
-        mock_parsed["estimated_value"] = "$50.00"
+        # Fallback if LLM fails or returns empty
+        if not mock_parsed or not mock_parsed.get("items"):
+            print("⚠️ LLM returned empty, using fallback parser...")
+            mock_parsed = {"donor_name": "Anonymous Donor", "items": ["miscellaneous items"], "quantity": 10, "dropoff_time": "5 PM today"}
+    else:
+        print("⚠️ LLM unavailable. Using fallback parser.")
+        mock_parsed = {"donor_name": "Anonymous Donor", "items": ["miscellaneous items"], "quantity": 10, "dropoff_time": "5 PM today"}
         
-        # Override with explicit data from seed script if provided
-        if donor_email: mock_parsed["donor_email"] = donor_email
-        if donor_phone: mock_parsed["donor_phone"] = donor_phone
+    mock_parsed["estimated_value"] = "$50.00"
+    
+    # 3. Inject Contact Info (Only store what was actually provided)
+    if donor_email: 
+        mock_parsed["donor_email"] = donor_email
+    if donor_phone: 
+        mock_parsed["donor_phone"] = donor_phone
         
-        # Fallback mock contacts if not provided
-        if not mock_parsed.get("donor_email"):
-            mock_parsed["donor_email"] = f"{mock_parsed['donor_name'].split()[0].lower()}@example.com"
-        if not mock_parsed.get("donor_phone"):
-            mock_parsed["donor_phone"] = "+15550000000"
+    # Fallback only for phone if missing (for demo purposes)
+    if not mock_parsed.get("donor_phone"):
+        mock_parsed["donor_phone"] = "+15550000000"
         
-        log_tool_execution(intake_logger, "extract_donation_details", raw_message, mock_parsed)
+    # ⚠️ DO NOT auto-generate fake emails. If donor_email is None, leave it None.
+    # This allows the Dispatch Agent to distinguish between "Email donation" and "SMS donation".
+    
+    # 4. Determine Source (CRITICAL FOR FRONTEND)
+    # Use provided source, or infer from contact info
+    if source:
+        message_source = source
+    elif donor_email:
+        message_source = "Email"
+    else:
+        message_source = "SMS"  # Default fallback
+        
+    mock_parsed["source"] = message_source
+    
+    log_tool_execution(intake_logger, "extract_donation_details", raw_message, mock_parsed)
 
-        is_compliant, compliance_msg, mock_parsed = PantryGuardrails.prevent_financial_hallucination(mock_parsed)
-        if not is_compliant:
-            log_hitl_event(intake_logger, "financial_hallucination_check", "REDACTED", {"reason": compliance_msg})
+    # 5. Guardrail: Prevent Financial Hallucination
+    is_compliant, compliance_msg, mock_parsed = PantryGuardrails.prevent_financial_hallucination(mock_parsed)
+    if not is_compliant:
+        log_hitl_event(intake_logger, "financial_hallucination_check", "REDACTED", {"reason": compliance_msg})
 
-        context_snippet = memory.generate_context_prompt(mock_parsed["donor_name"])
-        print(f"🧠 Memory Context: {context_snippet}")
+    # 6. Memory & Logging
+    context_snippet = memory.generate_context_prompt(mock_parsed["donor_name"])
+    print(f"🧠 Memory Context: {context_snippet}")
 
-        result = log_donation(
-            donor_name=mock_parsed["donor_name"],
-            items=mock_parsed["items"],
-            quantity=mock_parsed["quantity"],
-            notes=f"Dropoff at {mock_parsed['dropoff_time']}",
-            donor_email=mock_parsed.get("donor_email"),
-            donor_phone=mock_parsed.get("donor_phone")
-        )
-        
-        memory.save_interaction(
-            donor_name=mock_parsed["donor_name"],
-            raw_message=raw_message,
-            action_taken=result
-        )
-        
-        log_agent_action(intake_logger, "log_donation", {"donation_id": "DON-0001", "status": "pending_approval"})
-        log_hitl_event(intake_logger, "human_approval", "PENDING", {"donation_id": "DON-0001"})
-        
-        memory_note = "\n\n🧠 Agent Memory Note: I recognized this donor from past interactions." if "first time" not in context_snippet else ""
-        
-        return f"✅ Donation processed successfully!{memory_note}\n\nParsed: {json.dumps(mock_parsed, indent=2)}\nSystem: {result}\n\n{compliance_msg}"
-
-    return "AWS logic placeholder."
+    # 7. Save to Database WITH THE SOURCE FIELD
+    result = log_donation(
+        donor_name=mock_parsed["donor_name"],
+        items=mock_parsed["items"],
+        quantity=mock_parsed["quantity"],
+        notes=f"Dropoff at {mock_parsed['dropoff_time']}",
+        donor_email=mock_parsed.get("donor_email"),
+        donor_phone=mock_parsed.get("donor_phone"),
+        source=message_source  
+    )
+    
+    memory.save_interaction(donor_name=mock_parsed["donor_name"], raw_message=raw_message, action_taken=result)
+    log_agent_action(intake_logger, "log_donation", {"donation_id": "DON-0001", "status": "pending_approval"})
+    log_hitl_event(intake_logger, "human_approval", "PENDING", {"donation_id": "DON-0001"})
+    
+    memory_note = "\n\n🧠 Agent Memory Note: I recognized this donor from past interactions." if "first time" not in context_snippet else ""
+    
+    return f"✅ Donation processed successfully!{memory_note}\n\nParsed: {json.dumps(mock_parsed, indent=2)}\nSystem: {result}\n\n{compliance_msg}"

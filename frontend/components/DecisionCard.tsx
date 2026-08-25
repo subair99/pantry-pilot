@@ -12,6 +12,9 @@ interface Donation {
   quantity: number;
   notes: string;
   status: string;
+  donor_email?: string;
+  donor_phone?: string;
+  source?: string; // Added for explicit channel detection
 }
 
 // 1. Explicitly type the variants to satisfy TypeScript
@@ -130,7 +133,7 @@ export default function DecisionCard({ donation }: { donation: Donation }) {
         )}
 
         {/* NEW: Email Tax Receipt Block */}
-        {dispatchInfo && dispatchInfo.email_response && (
+        {dispatchInfo && dispatchInfo.email_response && dispatchInfo.email_response.status !== "skipped" && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -140,17 +143,60 @@ export default function DecisionCard({ donation }: { donation: Donation }) {
             <div className="flex items-center gap-2 mb-3">
               <Mail className="w-5 h-5 text-indigo-600" />
               <span className="text-xs font-bold text-indigo-900 uppercase tracking-wider">Dispatch Agent Action</span>
-              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-full">Tax Receipt Drafted</span>
+              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-bold rounded-full flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Tax Receipt Sent
+              </span>
             </div>
-            <p className="text-sm text-gray-700 mb-2">
-              Sent to <span className="font-semibold text-gray-900">{dispatchInfo.donor_email}</span>
-            </p>
+            
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-700">
+                Sent to <span className="font-semibold text-gray-900">{dispatchInfo.donor_email}</span>
+              </p>
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Delivered just now
+              </span>
+            </div>
+
             <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-inner">
               <p className="text-xs font-bold text-gray-500 uppercase mb-1">Subject</p>
               <p className="text-sm font-semibold text-gray-900 mb-3">{dispatchInfo.email_subject}</p>
               <p className="text-xs font-bold text-gray-500 uppercase mb-1">Body Preview</p>
               <p className="text-sm text-gray-700 italic whitespace-pre-line">
                 {dispatchInfo.email_body_preview}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* NEW: Proactive Donor Engagement Block (Amber) */}
+        {dispatchInfo && dispatchInfo.donor_engagement_sms && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="mt-4 bg-gradient-to-br from-gray-50 to-amber-50/50 border border-amber-200 rounded-xl p-5 shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="w-5 h-5 text-amber-600" />
+              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Proactive Agent Action</span>
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold rounded-full flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Engagement Sent
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-700">
+                Sent to <span className="font-semibold text-gray-900">{dispatchInfo.donor_engagement_sms.to}</span>
+              </p>
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Delivered just now
+              </span>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg border border-amber-100 shadow-inner">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-1">Automated Reply</p>
+              <p className="text-sm text-gray-700 italic whitespace-pre-line">
+                "{dispatchInfo.donor_engagement_sms.message}"
               </p>
             </div>
           </motion.div>
@@ -264,11 +310,16 @@ export default function DecisionCard({ donation }: { donation: Donation }) {
               className="bg-white/70 backdrop-blur-sm border border-blue-100 rounded-lg p-4"
             >
               <p className="text-sm text-blue-900 leading-relaxed">
-                I have <span className="font-semibold">parsed the incoming SMS</span>, 
+                I have <span className="font-semibold">parsed the incoming {donation.source || 'SMS'}</span>, 
                 extracted the <span className="font-semibold">donor details</span> and 
                 <span className="font-semibold"> inventory items</span>, and drafted an 
-                <span className="font-semibold"> IRS-compliant receipt</span>. This donation 
-                is ready to be added to active inventory.
+                <span className="font-semibold"> IRS-compliant receipt</span>. 
+                {donation.source === 'Email' && (
+                  <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs rounded-full font-bold border border-indigo-200">
+                    <Mail className="w-3 h-3" /> IRS Receipt Eligible
+                  </span>
+                )}
+                This donation is ready to be added to active inventory.
               </p>
               
               {/* Visual workflow steps */}

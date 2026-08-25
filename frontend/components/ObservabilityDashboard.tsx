@@ -28,9 +28,9 @@ export default function ObservabilityDashboard() {
     const fetchData = async () => {
       try {
         const [tracesRes, metricsRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/traces"),
-          fetch("http://127.0.0.1:8000/api/metrics")
-        ]);
+        fetch("http://localhost:8000/api/traces"),
+        fetch("http://localhost:8000/api/metrics")
+      ]);
         const tracesData = await tracesRes.json();
         const metricsData = await metricsRes.json();
         setTraces(tracesData.traces || []);
