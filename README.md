@@ -1,5 +1,3 @@
-
-```markdown
 # 📦 PantryPilot: Autonomous Multi-Agent AI for Food Bank Operations
 
 **PantryPilot** is an intelligent, multi-agent orchestration system that automates the entire donation lifecycle for food banks. From unstructured voice notes and text messages to IRS-compliant tax receipts, our AI handles the administrative heavy lifting so food bank staff can focus on feeding their communities.
@@ -73,7 +71,7 @@ PantryPilot introduces a **Human-in-the-Loop (HITL) Multi-Agent Architecture**. 
 ### Prerequisites
 * Node.js 18+
 * Python 3.10+
-* [uv](https://github.com/astral-sh/uv) (Fast Python package installer)
+* [uv](https://github.com/astral-sh/uv)
 * A Qwen/DashScope API Key
 
 ### 1. Backend Setup
@@ -107,4 +105,4 @@ npm run dev
 
 ## 👥 Team
 Built with ❤️ by [Your Name/Team Name]
-```
+
