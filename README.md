@@ -4,7 +4,7 @@
 
 ---
 
-##  The Problem
+## ⚠️ The Problem
 Food banks operate on thin margins and rely heavily on volunteer staff. However, the donation intake process is highly manual and fragmented:
 * Donors send unstructured messages via SMS, Email, and Voicemail.
 * Staff must manually transcribe audio, parse details, and log inventory.
@@ -27,11 +27,11 @@ PantryPilot introduces a **Human-in-the-Loop (HITL) Multi-Agent Architecture**. 
 * **Dispatch Agent:** Automatically routes drop-offs to volunteers and sends proactive SMS engagement if donor contact info is missing.
 * **Logistics Agent:** Analyzes incoming inventory to flag shortages and forecast food security.
 
-### ️ Human-in-the-Loop (HITL) Approval
+### ️🧑‍💻 Human-in-the-Loop (HITL) Approval
 * AI never acts blindly. The system presents a clear **"Agent Reasoning"** card detailing exactly what it plans to do.
 * Staff simply click "Approve & Log" to trigger the downstream automated workflows.
 
-###  Automated IRS Tax Receipts
+### 🧾 Automated IRS Tax Receipts
 * Upon approval, the system instantly generates a beautifully formatted, IRS-compliant PDF tax receipt.
 * Donors receive immediate confirmation, building trust and encouraging recurring donations.
 
@@ -41,7 +41,7 @@ PantryPilot introduces a **Human-in-the-Loop (HITL) Multi-Agent Architecture**. 
 
 ---
 
-## ️ Architecture & Data Flow
+## 🏗️ Architecture & Data Flow
 
 1. **Ingestion:** Files (`.txt` for SMS/Email, `.wav` for Voice) are dropped into the backend queue folders.
 2. **Transcription & Parsing:** The Queue Processor triggers the Qwen ASR API for voice files. The Intake Agent (powered by Qwen LLM) extracts structured data.
@@ -54,7 +54,7 @@ PantryPilot introduces a **Human-in-the-Loop (HITL) Multi-Agent Architecture**. 
 
 ---
 
-## ️ Tech Stack
+## 🛠️ Tech Stack
 
 * **Frontend:** Next.js 16 (Turbopack), React, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 * **Backend:** Python, FastAPI, Pydantic.
@@ -77,15 +77,24 @@ PantryPilot introduces a **Human-in-the-Loop (HITL) Multi-Agent Architecture**. 
 ### 1. Backend Setup
 ```bash
 cd pantry-pilot/backend
-cp .env.example .env  # Add your QWEN_API_KEY here
-uv sync
-uv run uvicorn main:app --reload
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+uvicorn main:app --reload
 ```
 
 ### 2. Frontend Setup
 ```bash
 cd pantry-pilot/frontend
-npm install
+npm install next@latest react@latest react-dom@latest lucide-react@latest framer-motion@latest
+npx tailwindcss init -p
+npm install framer-motion
 npm run dev
 ```
 
