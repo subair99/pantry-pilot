@@ -56,4 +56,4 @@ Building PantryPilot for the **Agents for Humans** hackathon was an incredible e
 
 If you are building your own agent for the hackathon, I highly recommend leaning into the HITL pattern. Judges and users alike want to see *how* the agent thinks, not just what it outputs. 
 
-Check out my open-source code on (GitHub)[https://github.com/subair99/pantry-pilot] and let me know what you think!
+Check out my open-source code on [**GitHub**](https://github.com/subair99/pantry-pilot) and let me know what you think!

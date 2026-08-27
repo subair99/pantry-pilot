@@ -80,10 +80,14 @@ cd pantry-pilot/backend
 
 # Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+uv init --no-readme --vcs none
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Compile the pyproject.toml and lockfile specifications into a backwards-compatible requirements.txt file
+uv sync
+uv pip compile pyproject.toml --generate-hashes -o requirements.txt
 
 # Run the server
 uvicorn main:app --reload
@@ -113,5 +117,5 @@ npm run dev
 **AI for Social Impact / Agentic AI**
 
 ## 👥 Team
-Built with ❤️ by [Your Name/Team Name]
+Built with ❤️ by AbdulKabir
 
