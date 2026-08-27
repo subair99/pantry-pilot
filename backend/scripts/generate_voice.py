@@ -19,7 +19,7 @@ TTS_BASE_URL = os.getenv("TTS_BASE_URL", "wss://dashscope-intl.aliyuncs.com/api-
 TTS_MODEL = os.getenv("TTS_MODEL", "cosyvoice-v3-flash")
 TTS_VOICE = os.getenv("TTS_VOICE", "longanyang")
 
-def generate_voice_from_docs():
+def generate_voice():
     if not MAIN_API_KEY:
         print("❌ ERROR: MAIN_API_KEY not found in .env file!")
         print("Please add your API key to backend/.env")
@@ -91,4 +91,4 @@ def generate_voice_from_docs():
     print("💡 You can now click 'Process Queue & Refresh' in the UI.")
 
 if __name__ == "__main__":
-    generate_voice_from_docs()
+    generate_voice()
