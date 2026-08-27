@@ -73,6 +73,7 @@ pantry-pilot/
 │   │   └── reset_queue.py            # Clears processed folders for fresh demo runs
 │   ├── received_messages/            # File-based durable queue system
 │   ├── generated_receipts/           # Output directory for approved PDF tax receipts
+│   ├── images/                       # Images required for submission
 │   ├── logs/                         # Persistent log storage
 │   │   └── agent_activity.jsonl      # Append-only log of all agent actions and HITL events
 │   ├── docs/                         # Documentation and template assets
@@ -140,6 +141,8 @@ sequenceDiagram
     UI->>PDF: GET /api/download-receipt/{id}
     PDF-->>UI: Downloads formatted PDF
 ```
+
+![PantryPilot Architecture Diagram](backend/images/pantrypilot-architecture.png)
 
 ---
 
