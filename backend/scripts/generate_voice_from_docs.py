@@ -13,25 +13,21 @@ load_dotenv()
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 OUTPUT_DIR = Path(__file__).parent.parent / "received_messages" / "voice" / "new_voice"
 
-QWEN_API_KEY = os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY")
-
-# Use the officially documented CosyVoice model name
-TTS_MODEL = "cosyvoice-v3-flash"
-
-# Set the websocket API URL
-dashscope.base_websocket_api_url = 'wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference'
-
-# Use the only guaranteed supported voice for cosyvoice-v3-flash on the international endpoint
-DEFAULT_VOICE = "longanyang" 
+# Read ALL configurations from .env with safe fallbacks
+MAIN_API_KEY = os.getenv("MAIN_API_KEY")
+TTS_BASE_URL = os.getenv("TTS_BASE_URL", "wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference")
+TTS_MODEL = os.getenv("TTS_MODEL", "cosyvoice-v3-flash")
+TTS_VOICE = os.getenv("TTS_VOICE", "longanyang")
 
 def generate_voice_from_docs():
-    if not QWEN_API_KEY:
-        print("❌ ERROR: QWEN_API_KEY or DASHSCOPE_API_KEY not found in .env file!")
+    if not MAIN_API_KEY:
+        print("❌ ERROR: MAIN_API_KEY not found in .env file!")
         print("Please add your API key to backend/.env")
         return
 
-    # Set the API key for dashscope
-    dashscope.api_key = QWEN_API_KEY
+    # Set the API key and WebSocket URL for dashscope from .env
+    dashscope.api_key = MAIN_API_KEY
+    dashscope.base_websocket_api_url = TTS_BASE_URL
     
     # Ensure output directory exists
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -49,7 +45,7 @@ def generate_voice_from_docs():
         print("ℹ️ No .txt files found in the docs folder. Nothing to process.")
         return
 
-    print(f" Found {len(text_files)} text file(s) to convert to voice using model: {TTS_MODEL}\n")
+    print(f"🎤 Found {len(text_files)} text file(s) to convert to voice using model: {TTS_MODEL}\n")
 
     for txt_file in text_files:
         print(f"📖 Reading: {txt_file.name}")
@@ -62,13 +58,13 @@ def generate_voice_from_docs():
                 continue
 
             print(f"   Text: \"{text_content[:50]}...\"")
-            print(f"   🎙️ Using Voice: {DEFAULT_VOICE}")
+            print(f"   🎙️ Using Voice: {TTS_VOICE}")
             print("   🔄 Generating audio...")
 
             # Instantiate SpeechSynthesizer 
             synthesizer = SpeechSynthesizer(
                 model=TTS_MODEL, 
-                voice=DEFAULT_VOICE,
+                voice=TTS_VOICE,
                 format=AudioFormat.WAV_24000HZ_MONO_16BIT # 24kHz is the native optimal rate for CosyVoice v3
             )
             
@@ -92,7 +88,7 @@ def generate_voice_from_docs():
             print(f"   ❌ Failed to process {txt_file.name}: {e}\n")
 
     print("🎉 Voice generation complete! Files are ready in received_messages/voice/new_voice/")
-    print(" You can now click 'Process Queue & Refresh' in the UI.")
+    print("💡 You can now click 'Process Queue & Refresh' in the UI.")
 
 if __name__ == "__main__":
     generate_voice_from_docs()

@@ -17,26 +17,26 @@ class DonationExtraction(BaseModel):
     total_quantity: int = Field(description="The total numerical count of all items combined")
     dropoff_time: str = Field(description="The proposed dropoff time (e.g., 'Today (flexible)', '5 PM')")
 
-# 2. Initialize the Qwen API Client (OpenAI-compatible)
-QWEN_API_KEY = os.getenv("QWEN_API_KEY")
-QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
+# 2. Initialize the Main LLM API Client (OpenAI-compatible)
+MAIN_API_KEY = os.getenv("MAIN_API_KEY")
+MAIN_BASE_URL = os.getenv("MAIN_BASE_URL", "https://api.openai.com/v1") # Safe fallback
+MAIN_MODEL = os.getenv("MAIN_MODEL", "gpt-4o") # Safe fallback
 
-if QWEN_API_KEY:
-    qwen_client = OpenAI(
-        api_key=QWEN_API_KEY,
-        base_url=QWEN_BASE_URL
+if MAIN_API_KEY:
+    llm_client = OpenAI(
+        api_key=MAIN_API_KEY,
+        base_url=MAIN_BASE_URL
     )
     LLM_AVAILABLE = True
 else:
-    intake_logger.warning("QWEN_API_KEY not found. LLM extraction disabled, using fallback.")
+    intake_logger.warning("MAIN_API_KEY not found. LLM extraction disabled, using fallback.")
     LLM_AVAILABLE = False
 
 def extract_info_with_llm(message: str) -> dict:
-    """Uses Qwen API with Pydantic structured output to perfectly parse text."""
+    """Uses Main LLM API with Pydantic structured output to perfectly parse text."""
     try:
-        response = qwen_client.beta.chat.completions.parse(
-            model=QWEN_MODEL,
+        response = llm_client.beta.chat.completions.parse(
+            model=MAIN_MODEL,
             messages=[
                 {"role": "system", "content": "You are an expert logistics coordinator for a food bank. CRITICAL: You MUST extract ALL items mentioned. NEVER return an empty list for items. If the user says '100 lbs of tomatoes', return ['100 lbs of tomatoes']. Be concise and accurate."},
                 {"role": "user", "content": f"Extract the donation details from this message: '{message}'"}
@@ -52,7 +52,7 @@ def extract_info_with_llm(message: str) -> dict:
             "dropoff_time": parsed.dropoff_time or "5 PM today"
         }
     except Exception as e:
-        intake_logger.error(f"Qwen LLM extraction failed: {e}")
+        intake_logger.error(f"Main LLM extraction failed: {e}")
         return None
 
 def process_incoming_donation(raw_message: str, donor_email: str = None, donor_phone: str = None, source: str = None) -> str:
@@ -67,7 +67,7 @@ def process_incoming_donation(raw_message: str, donor_email: str = None, donor_p
 
     # 2. LLM Extraction (with Fallback for demo reliability)
     if LLM_AVAILABLE:
-        print(f"✨ Using Qwen API ({QWEN_MODEL}) for structured extraction...")
+        print(f"✨ Using Main LLM API ({MAIN_MODEL}) for structured extraction...")
         mock_parsed = extract_info_with_llm(raw_message)
         
         # Fallback if LLM fails or returns empty
