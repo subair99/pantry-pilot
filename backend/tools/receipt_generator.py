@@ -1,128 +1,97 @@
 # backend/tools/receipt_generator.py
-import os
-from datetime import datetime
-from pathlib import Path
 from fpdf import FPDF
+from pathlib import Path
+from datetime import datetime
 
 class TaxReceiptPDF(FPDF):
     def header(self):
-        # Logo or header line
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'PANTRYPILOT FOOD BANK', 0, 1, 'C')
-        self.set_font('Arial', 'I', 10)
-        self.cell(0, 5, 'Tax Donation Receipt', 0, 1, 'C')
-        self.ln(10)
-    
+        # w=0 means "use full width between margins"
+        self.set_font("Helvetica", "B", 16)
+        self.cell(0, 10, "PantryPilot Food Bank", ln=True, align="C")
+        
+        self.set_font("Helvetica", "", 12)
+        self.cell(0, 5, "Official Tax Receipt for Charitable Donation", ln=True, align="C")
+        
+        self.ln(5)
+        # Draw a line across the page
+        self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+        self.ln(5)
+
     def footer(self):
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        self.set_font("Helvetica", "I", 8)
+        self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
 
-def generate_tax_receipt(donation_data: dict, receipt_id: str) -> str:
+def generate_tax_receipt(donation_data: dict, donation_id: str) -> str:
     """
-    Generates an IRS-compliant tax receipt PDF for a donation.
-    Returns the file path of the generated PDF.
+    Generates an IRS-compliant PDF tax receipt.
     """
-    # Ensure receipts directory exists
-    receipts_dir = Path(__file__).parent.parent / "generated_receipts"
-    receipts_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create PDF
+    output_dir = Path(__file__).parent.parent / "generated_receipts"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    file_path = output_dir / f"receipt_{donation_id}.pdf"
+
     pdf = TaxReceiptPDF()
+    pdf.alias_nb_pages()
     pdf.add_page()
+    
+    # Set safe margins
+    pdf.set_margins(left=15, top=15, right=15)
     pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Receipt Header
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, f'Receipt ID: {receipt_id}', 0, 1)
-    pdf.cell(0, 10, f'Date Issued: {datetime.now().strftime("%B %d, %Y")}', 0, 1)
+
+    # --- HELPER FUNCTION ---
+    # This function guarantees text never cuts off by resetting X to the left margin
+    # and using w=0 (full available width).
+    def print_line(text, bold=False, size=10, h=6):
+        pdf.set_x(pdf.l_margin)  # Force cursor to left edge
+        pdf.set_font("Helvetica", "B" if bold else "", size)
+        pdf.multi_cell(w=0, h=h, text=text) # w=0 uses all space to the right margin
+        pdf.ln(1) # Small gap between lines
+
+    # 1. Receipt Details (Full width lines to prevent cutoff)
+    print_line(f"Receipt ID: {donation_id}", bold=True, size=11)
+    print_line(f"Date Issued: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", size=10)
     pdf.ln(5)
-    
-    # Donor Information
-    pdf.set_fill_color(240, 240, 240)
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(0, 8, 'DONOR INFORMATION', 0, 1)
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 6, f'Donor Name: {donation_data.get("donor_name", "Unknown")}', 0, 1)
-    pdf.cell(0, 6, f'Date of Donation: {donation_data.get("donation_date", datetime.now().strftime("%B %d, %Y"))}', 0, 1)
-    if donation_data.get("donor_email"):
-        pdf.cell(0, 6, f'Email: {donation_data["donor_email"]}', 0, 1)
-    if donation_data.get("donor_phone"):
-        pdf.cell(0, 6, f'Phone: {donation_data["donor_phone"]}', 0, 1)
+
+    # 2. Donor Information
+    print_line("Donor Information", bold=True, size=12, h=8)
+    print_line(f"Name: {donation_data.get('donor', 'Anonymous Donor')}")
+    print_line(f"Email: {donation_data.get('donor_email', 'N/A')}")
+    print_line(f"Phone: {donation_data.get('donor_phone', 'N/A')}")
     pdf.ln(5)
+
+    # 3. Donation Details
+    print_line("Donation Details", bold=True, size=12, h=8)
+    print_line(f"Drop-off Notes: {donation_data.get('notes', 'N/A')}")
+    pdf.ln(2)
     
-    # Donation Details
-    pdf.set_fill_color(240, 240, 240)
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(0, 8, 'DONATION DETAILS', 0, 1)
-    pdf.set_font('Arial', '', 10)
-    
-    # Items table header
-    pdf.set_fill_color(220, 220, 220)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(120, 7, 'Item Description', 1, 0, 'L', True)
-    pdf.cell(40, 7, 'Quantity', 1, 0, 'C', True)
-    pdf.cell(30, 7, 'Est. Value', 1, 1, 'R', True)
-    
-    # Items
-    pdf.set_font('Arial', '', 10)
+    print_line("Items Donated:", bold=True, size=10)
     items = donation_data.get("items", [])
-    quantity = donation_data.get("quantity", 0)
-    estimated_value = donation_data.get("estimated_value", "$0.00")
-    
-    # Simple item listing
-    for i, item in enumerate(items[:3]):  # Show first 3 items
-        pdf.cell(120, 7, item[:40], 1, 0, 'L')
-        if i == 0:
-            pdf.cell(40, 7, str(quantity), 1, 0, 'C')
-            pdf.cell(30, 7, estimated_value, 1, 1, 'R')
-        else:
-            pdf.cell(70, 7, '', 1, 1, 'L')
-    
-    # If more than 3 items, add "and X more"
-    if len(items) > 3:
-        pdf.cell(120, 7, f"... and {len(items) - 3} more items", 1, 0, 'L')
-        pdf.cell(70, 7, '', 1, 1, 'L')
-    
+    if items:
+        for item in items:
+            print_line(f"  - {item}")
+    else:
+        print_line("  - Miscellaneous items")
+        
+    print_line(f"Total Estimated Quantity: {donation_data.get('quantity', 0)} units")
     pdf.ln(5)
-    
-    # Total Value
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(160, 8, 'Total Estimated Fair Market Value:', 0, 0, 'R')
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(30, 8, estimated_value, 0, 1, 'R')
-    pdf.ln(10)
-    
-    # IRS Compliance Statement
-    pdf.set_font('Arial', 'I', 9)
-    pdf.multi_cell(0, 5, 'IMPORTANT TAX INFORMATION:')
-    pdf.set_font('Arial', '', 9)
-    pdf.multi_cell(0, 5, 
-        'No goods or services were provided by PantryPilot Food Bank in exchange for this donation. '
-        'This receipt is provided in compliance with IRS regulations for charitable contributions. '
-        'The donor is responsible for determining the fair market value of donated goods. '
-        'Please consult with a tax professional for specific deduction questions.'
+
+    # 4. IRS Compliance Statement
+    print_line("IRS Compliance & Acknowledgment", bold=True, size=11, h=8)
+    irs_text = (
+        "No goods or services were provided in exchange for this donation. "
+        "PantryPilot Food Bank is a registered 501(c)(3) non-profit organization. "
+        "This document serves as an official acknowledgment of your charitable contribution "
+        "for tax purposes. Please retain this receipt for your records."
     )
+    print_line(irs_text, size=9, h=5)
+
+    # 5. Signature Line
+    pdf.ln(10)
+    pdf.set_x(pdf.l_margin)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + 75, pdf.get_y())
     pdf.ln(5)
-    
-    # Organization Info
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(0, 7, 'PantryPilot Food Bank', 0, 1)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(0, 5, '501(c)(3) Non-Profit Organization', 0, 1)
-    pdf.cell(0, 5, 'EIN: XX-XXXXXXX', 0, 1)
-    pdf.cell(0, 5, 'www.pantrypilot.org', 0, 1)
-    pdf.ln(5)
-    
-    # Signature line
-    pdf.set_font('Arial', 'I', 9)
-    pdf.cell(0, 10, '_________________________', 0, 1)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(0, 5, 'Authorized Signature', 0, 1)
-    pdf.cell(0, 5, f'Generated on: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}', 0, 1)
-    
-    # Save PDF
-    pdf_path = receipts_dir / f"receipt_{receipt_id}.pdf"
-    pdf.output(str(pdf_path))
-    
-    return str(pdf_path)
+    print_line("Authorized Signature, PantryPilot Food Bank", size=9)
+
+    # Save the PDF
+    pdf.output(str(file_path))
+    return str(file_path)

@@ -1,4 +1,7 @@
 # backend/agents/orchestrator.py
+import json
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any
 
 # Import specialist agents
@@ -10,6 +13,28 @@ from agents.logistics_agent import analyze_inventory_health
 from tools.inventory_db import get_donation, get_pending_donations, approve_donation
 from tools.receipt_generator import generate_tax_receipt
 from utils.logger import orchestrator_logger, log_agent_action, log_hitl_event
+
+def save_approved_donation(donation_data: dict):
+    """Saves the approved donation data to a JSON file for the history dashboard."""
+    data_dir = Path(__file__).parent.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+    db_file = data_dir / "approved_donations.json"
+    
+    # Load existing data
+    approved_list = []
+    if db_file.exists():
+        try:
+            with open(db_file, "r") as f:
+                approved_list = json.load(f)
+        except json.JSONDecodeError:
+            approved_list = []
+            
+    # Append new donation
+    approved_list.append(donation_data)
+    
+    # Save back to file
+    with open(db_file, "w") as f:
+        json.dump(approved_list, f, indent=2)
 
 class PantryOrchestrator:
     def __init__(self):
@@ -74,6 +99,15 @@ class PantryOrchestrator:
         except Exception as e:
             orchestrator_logger.error(f"Logistics Agent failed: {e}")
             logistics_info = {"error": "Logistics agent failed, but donation was logged."}
+            
+        # ✅ SAVE APPROVED DONATION FOR HISTORY DASHBOARD ✅
+        save_approved_donation({
+            "id": donation_id,
+            "donor_name": donation.get("donor", "Unknown"),
+            "donor_email": donation.get("donor_email", "N/A"),
+            "donor_phone": donation.get("donor_phone", "N/A"),
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
             
         return {
             "status": "success", 

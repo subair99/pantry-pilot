@@ -93,6 +93,13 @@ def get_pending():
     """Fetches items awaiting Human-in-the-Loop approval."""
     return {"pending": get_pending_donations()}
 
+@app.get("/api/approved-donations")
+def get_approved():
+    """Fetches recently approved donations so receipts can be re-downloaded."""
+    from tools.inventory_db import get_approved_donations 
+    # Fallback to empty list if the function returns None
+    return {"donations": get_approved_donations() or []}
+
 @app.post("/api/approve/{donation_id}")
 def approve(donation_id: str):
     """Human approves the action. Orchestrator triggers Dispatch & Logistics agents."""

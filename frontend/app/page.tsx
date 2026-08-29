@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import DecisionCard from "../components/DecisionCard";
 import StatusBadge, { AgentStatus } from "../components/StatusBadge";
 import ObservabilityDashboard from "../components/ObservabilityDashboard";
+import DonationHistory from "../components/DonationHistory"; // <-- Added DonationHistory
 
 interface Donation {
   id: string;
@@ -175,6 +176,9 @@ export default function Home() {
             ))}
           </motion.div>
         )}
+
+        {/* Donation History */}
+        <DonationHistory />
 
         {/* Observability Dashboard */}
         <motion.div

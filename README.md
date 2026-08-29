@@ -45,66 +45,73 @@ PantryPilot is a production-grade, multi-agent AI orchestration system that auto
 ```text
 pantry-pilot/
 │
-├── backend/                          # Core Python FastAPI Application
-│   ├── agents/                       # Multi-Agent AI Orchestration
+├── backend/                            # Core Python FastAPI Application
+│   ├── .venv/                          # Local Python virtual environment
+│   ├── agents/                         # Multi-Agent AI Orchestration
 │   │   ├── __init__.py
-│   │   ├── intake_agent.py           # Parses raw messages into structured data (Pydantic)
-│   │   ├── dispatch_agent.py         # Handles volunteer routing & proactive donor SMS/Email
-│   │   ├── logistics_agent.py        # Analyzes inventory health and flags shortages
-│   │   └── orchestrator.py           # Central state manager enforcing Human-in-the-Loop (HITL)
-│   ├── tools/                        # MCP-style utility tools for the agents
+│   │   ├── intake_agent.py             # Parses raw messages into structured data (Pydantic)
+│   │   ├── dispatch_agent.py           # Handles volunteer routing & proactive donor SMS/Email
+│   │   ├── logistics_agent.py          # Analyzes inventory health and flags shortages
+│   │   └── orchestrator.py             # Central state manager enforcing Human-in-the-Loop (HITL)
+│   ├── tools/                          # MCP-style utility tools for the agents
 │   │   ├── __init__.py
-│   │   ├── file_queue.py             # Scans and processes new_* folders (SMS → Email → Voice)
-│   │   ├── voice_mcp.py              # ASR transcription tool (qwen3-asr-flash)
-│   │   ├── email_mcp.py              # Email dispatch utility
-│   │   ├── twilio_mcp.py             # SMS dispatch utility
-│   │   ├── ocr_mcp.py                # (Optional) OCR tool for image-based donations
-│   │   ├── receipt_generator.py      # Generates IRS-compliant PDF tax receipts (fpdf2)
-│   │   └── inventory_db.py           # Persistent storage and retrieval for donation records
-│   ├── utils/                        # Cross-cutting concerns and infrastructure
-│   │   ├── guardrails.py             # Input safety & financial hallucination prevention
-│   │   ├── logger.py                 # Structured JSONL logging (agent_activity.jsonl)
-│   │   ├── metrics.py                # Real-time performance tracking (latency, success rate)
-│   │   └── tracing.py                # Distributed request tracing for observability
-│   ├── state/                        # State management
-│   │   └── memory.py                 # Donor interaction history and context retention
-│   ├── scripts/                      # Standalone utility scripts
-│   │   ├── generate_voice.py         # TTS utility (cosyvoice-v3-flash) to generate demo .wav files
-│   │   └── reset_queue.py            # Clears processed folders for fresh demo runs
-│   ├── received_messages/            # File-based durable queue system
-│   ├── generated_receipts/           # Output directory for approved PDF tax receipts
-│   ├── images/                       # Images required for submission
-│   ├── logs/                         # Persistent log storage
-│   │   └── agent_activity.jsonl      # Append-only log of all agent actions and HITL events
-│   ├── docs/                         # Documentation and template assets
-│   ├── .env                          # Local environment variables (API keys, model configs)
-│   ├── .env.example                  # Template for environment variables
-│   ├── config.py                     # Centralized configuration loading
-│   ├── main.py                       # FastAPI entry point and REST API route definitions
-│   ├── pyproject.toml                # Python project metadata and dependency definitions
-│   ├── requirements.txt              # Fallback dependency list for standard pip installs
-│   └── uv.lock                       # Cryptographically locked dependencies for uv
+│   │   ├── file_queue.py               # Scans and processes new_* folders (SMS → Email → Voice)
+│   │   ├── voice_mcp.py                # ASR transcription tool (qwen3-asr-flash)
+│   │   ├── email_mcp.py                # Email dispatch utility
+│   │   ├── twilio_mcp.py               # SMS dispatch utility
+│   │   ├── ocr_mcp.py                  # (Optional) OCR tool for image-based donations
+│   │   ├── receipt_generator.py        # Generates IRS-compliant PDF tax receipts (fpdf2)
+│   │   └── inventory_db.py             # Persistent storage and retrieval for donation records
+│   ├── utils/                          # Cross-cutting concerns and infrastructure
+│   │   ├── guardrails.py               # Input safety & financial hallucination prevention
+│   │   ├── logger.py                   # Structured JSONL logging (agent_activity.jsonl)
+│   │   ├── metrics.py                  # Real-time performance tracking (latency, success rate)
+│   │   └── tracing.py                  # Distributed request tracing for observability
+│   ├── state/                          # State management
+│   │   └── memory.py                   # Donor interaction history and context retention
+│   ├── scripts/                        # Standalone utility scripts
+│   │   ├── generate_voice.py           # TTS utility (cosyvoice-v3-flash) to generate demo .wav files
+│   │   └── reset_queue.py              # Clears processed folders for fresh demo runs
+│   ├── received_messages/              # File-based durable queue system (email/, sms/, voice/)
+│   ├── generated_receipts/             # Output directory for approved PDF tax receipts
+│   ├── logs/                           # Persistent log storage
+│   │   └── agent_activity.jsonl        # Append-only log of all agent actions and HITL events
+│   ├── docs/                           # Documentation and template assets
+│   ├── .env                            # Local environment variables (API keys, model configs)
+│   ├── .env.example                    # Template for environment variables
+│   ├── .python-version                 # Python version pin (e.g., 3.12)
+│   ├── config.py                       # Centralized configuration loading
+│   ├── main.py                         # FastAPI entry point and REST API route definitions
+│   ├── pyproject.toml                  # Python project metadata and dependency definitions
+│   ├── requirements.txt                # Fallback dependency list for standard pip installs
+│   └── uv.lock                         # Cryptographically locked dependencies for uv
 │
-── frontend/                         # Next.js 16 (Turbopack) Dashboard
-│   ├── app/                          # Next.js App Router
-│   │   ├── api/approve/route.ts      # Backend API proxy for donation approval
-│   │   ├── globals.css               # Global Tailwind CSS styles
-│   │   ├── layout.tsx                # Root layout wrapper
-│   │   └── page.tsx                  # Main dashboard UI (Queue trigger, pending approvals)
-│   ├── components/                   # Reusable React components
-│   │   ├── AgentLog.tsx              # UI component for displaying raw agent activity logs
-│   │   ├── DecisionCard.tsx          # HITL approval card with "Agent Reasoning" & PDF download
-│   │   ├── ObservabilityDashboard.tsx# Live metrics, traces, and system health visualization
-│   │   └── StatusBadge.tsx           # Real-time system state indicator (Idle, Thinking, Awaiting)
-│   ├── next.config.js                # Next.js configuration
-│   ├── package.json                  # Frontend dependencies and scripts
-│   ├── tailwind.config.js            # Tailwind CSS theme and plugin configuration
-│   └── tsconfig.json                 # TypeScript compiler options
+├── frontend/                           # Next.js 16 (Turbopack) Dashboard
+│   ├── .next/                          # Next.js build output directory
+│   ├── app/                            # Next.js App Router
+│   │   ├── api/approve/route.ts        # Backend API proxy for donation approval
+│   │   ├── approvals/[id]/page.tsx     # Individual donation detail page (if applicable)
+│   │   ├── globals.css                 # Global Tailwind CSS styles
+│   │   ├── layout.tsx                  # Root layout wrapper
+│   │   └── page.tsx                    # Main dashboard UI (Queue trigger, pending approvals, history)
+│   ├── components/                     # Reusable React components
+│   │   ├── AgentLog.tsx                # UI component for displaying raw agent activity logs
+│   │   ├── DecisionCard.tsx            # HITL approval card with "Agent Reasoning" & PDF download
+│   │   ├── DonationHistory.tsx         # List of approved donations with "Download Receipt" buttons
+│   │   ├── ObservabilityDashboard.tsx  # Live metrics, traces, and system health visualization
+│   │   └── StatusBadge.tsx             # Real-time system state indicator (Idle, Thinking, Awaiting)
+│   ├── node_modules/                   # Frontend dependencies
+│   ├── next-env.d.ts                   # Next.js TypeScript declarations
+│   ├── next.config.js                  # Next.js configuration
+│   ├── package.json                    # Frontend dependencies and scripts
+│   ├── package-lock.json               # Locked frontend dependencies
+│   ├── postcss.config.js               # PostCSS configuration for Tailwind
+│   ├── tailwind.config.js              # Tailwind CSS theme and plugin configuration
+│   └── tsconfig.json                   # TypeScript compiler options
 │
-├── .gitignore                        # Git ignore rules (venv, node_modules, .env, .next, etc.)
-├── LICENSE                           # Project license (e.g., MIT)
-├── README.md                         # Primary project documentation and setup guide
-└── setup_project.py                  # Automated script to initialize directories and .env files
+├── .gitignore                          # Git ignore rules (venv, node_modules, .env, .next, etc.)
+├── LICENSE                             # Project license (e.g., MIT)
+└── README.md                           # Primary project documentation and setup guide
 ```
 
 ---
@@ -142,7 +149,7 @@ sequenceDiagram
     PDF-->>UI: Downloads formatted PDF
 ```
 
-![PantryPilot Architecture Diagram](backend/images/pantrypilot-architecture.png)
+![Architecture Diagram](backend/images/1-architecture.png)
 
 ---
 
