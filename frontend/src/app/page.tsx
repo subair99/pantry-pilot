@@ -1,5 +1,6 @@
 "use client";
 
+import { Bigelow_Rules } from "next/font/google";
 import { useState, useEffect } from "react";
 
 interface PendingMessage {
@@ -42,24 +43,29 @@ export default function Dashboard() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT || "http://localhost:3000";
 
+  // ✅ Manual scan only
   const fetchMessages = async () => {
     setIsLoading(true);
-    setStatus("Scanning inbox...");
+    setStatus("Scanning inbox and transcribing voice notes...");
     try {
       const res = await fetch(`${API_URL}/scan`);
       const data = await res.json();
       const unapprovedMessages = data.filter((msg: PendingMessage) => !approvedFilenames.has(msg.filename));
       setMessages(unapprovedMessages);
-      setStatus(unapprovedMessages.length > 0 ? `${unapprovedMessages.length} messages pending approval` : "Inbox empty - All caught up!");
+      setStatus(unapprovedMessages.length > 0 
+        ? `${unapprovedMessages.length} new messages found!` 
+        : "Inbox empty - All caught up!");
     } catch (err) {
       setStatus("Error fetching messages");
     } finally {
       setIsLoading(false);
     }
-    setTimeout(fetchMessages, 10000);
   };
 
-  useEffect(() => { fetchMessages(); }, []);
+  // Only scan ONCE when the page loads
+  useEffect(() => { 
+    fetchMessages(); 
+  }, []);
 
   const handleApprove = async (msg: PendingMessage) => {
     if (approvedFilenames.has(msg.filename) || isLoading) return;
@@ -133,12 +139,22 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      {/* ✅ REDUCED WIDTH: max-w-3xl instead of max-w-5xl */}
       <div className="max-w-3xl mx-auto">
+        
+        {/* ✅ CLEAN HEADER: Only Scan Inbox button remains */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">📦 PantryPilot</h1>
             <p className="text-sm md:text-base text-gray-600 mt-1">Approval Pipeline</p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={fetchMessages} 
+              disabled={isLoading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2"
+            >
+              {isLoading ? 'Scanning...' : '🔄 Scan Inbox'}
+            </button>
           </div>
         </div>
 
@@ -200,7 +216,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* ✅ MATCHES SEARCH RESULTS EXACTLY */}
                   <div className="flex gap-2">
                     <a 
                       href={receipt.receipt_url} 
