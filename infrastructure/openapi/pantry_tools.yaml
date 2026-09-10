@@ -1,0 +1,117 @@
+# infrastructure/openapi/pantry_tools.yaml
+openapi: 3.0.0
+info:
+  title: PantryPilot Agent Tools
+  version: 1.0.0
+  description: Tools for the PantryPilot multi-agent system to manage food bank donations.
+paths:
+  /generate_receipt:
+    post:
+      operationId: GenerateReceipt
+      summary: Generates an IRS-compliant PDF tax receipt for an approved donation.
+      description: >
+        Use this tool ONLY after a human has explicitly approved the donation details. 
+        It generates a PDF and returns an S3 URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                donation_id:
+                  type: string
+                  description: The unique ID of the donation (e.g., DON-1A2B).
+                donor_name:
+                  type: string
+                  description: The name of the donor.
+                items:
+                  type: array
+                  items:
+                    type: string
+                  description: List of donated items.
+                quantity:
+                  type: integer
+                  description: Total quantity of items.
+      responses:
+        '200':
+          description: Receipt generated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  receipt_url:
+                    type: string
+                    description: The S3 URL of the generated PDF receipt.
+      # 🔒 CRITICAL: Enforces Human-in-the-Loop (HITL) at the infrastructure level
+      x-amazon-bedrock-action-group-require-confirmation: true
+
+  /send_volunteer_sms:
+    post:
+      operationId: SendVolunteerSMS
+      summary: Sends an SMS notification to a volunteer about an incoming drop-off.
+      description: >
+        Use this tool to notify volunteers of a confirmed donation drop-off. 
+        Requires human approval before execution.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                volunteer_phone:
+                  type: string
+                  description: The phone number of the volunteer.
+                dropoff_details:
+                  type: string
+                  description: Summary of the donation and drop-off time.
+      responses:
+        '200':
+          description: SMS sent successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message_id:
+                    type: string
+      # 🔒 CRITICAL: Enforces Human-in-the-Loop (HITL)
+      x-amazon-bedrock-action-group-require-confirmation: true
+
+  /transcribe_voice:
+    post:
+      operationId: TranscribeVoice
+      summary: Transcribes an audio file (voice note) into text.
+      description: >
+        Use this tool to convert donor voice notes (.wav, .mp3) into text 
+        so the Intake Agent can parse the donation details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                audio_s3_uri:
+                  type: string
+                  description: The S3 URI of the uploaded audio file.
+      responses:
+        '200':
+          description: Transcription successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  transcribed_text:
+                    type: string
+      # No confirmation needed for transcription (silent background task)
+      x-amazon-bedrock-action-group-require-confirmation: false

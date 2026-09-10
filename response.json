@@ -1,0 +1,1 @@
+{"statusCode": 200, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}, "body": "{\"reply\": \"The donation from Sarahs Bakery has been successfully approved and the receipt has been generated and saved to s3://pantry-pilot-assets-741714103560/receipts/DON-9999.pdf.\"}"}
