@@ -2,6 +2,8 @@
 
 **PantryPilot** is an autonomous, serverless AI agent built with the **Strands Agents SDK** that streamlines food bank operations. It ingests donation requests across multiple channels (Voice, SMS, Email), uses Amazon Bedrock to extract structured data, generates IRS-compliant tax receipts, and notifies volunteers—embracing a **"Quiet until it matters"** UX philosophy.
 
+![PantryPilot Dashboard](images/1-dashboard_before_scanning.png)
+
 ---
 
 ## The Problem
