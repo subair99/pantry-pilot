@@ -125,3 +125,9 @@ Open `http://localhost:3000` in your browser.
 - **Repository:** [Link to GitHub Repo](https://github.com/subair99/pantry-pilot)
 
 ---
+
+## Demo Video
+
+[![Watch it here](images/video-thumbnail.png)](https://youtu.be/x2_reUGsFzo?si=m6iSPKpjZvE8q-Qa)
+
+---
