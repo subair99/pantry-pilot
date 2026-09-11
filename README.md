@@ -131,3 +131,11 @@ Open `http://localhost:3000` in your browser.
 [![Watch it here](images/video-thumbnail.png)](https://youtu.be/x2_reUGsFzo?si=m6iSPKpjZvE8q-Qa)
 
 ---
+
+## Licence
+
+**MIT License.**
+
+*Built for the Agents for Humans Hackathon 2026.*
+
+---
