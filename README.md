@@ -41,37 +41,22 @@ Built using the **Strands Agents SDK**, the core orchestrator uses custom `@tool
 
 ```mermaid
 graph TD
-    subgraph "Ingestion Layer"
-        A[S3: received_voice/] -->|Auto-Transcribe| B[S3: received_messages/]
-        C[S3: received_messages/] -->|SMS/Email Files| B
-    end
-    
-    subgraph "Processing Layer"
-        B -->|HTTP GET /scan| D[Lambda: Pipeline Orchestrator]
-        D -->|Extract JSON| E[Amazon Bedrock<br/>Nova Pro]
-        E -->|Structured Data| D
-    end
-    
-    subgraph "AI Agent Layer"
-        D -->|HTTP POST /approve| F[Strands Agent]
-        F -->|@tool generate_receipt| G[FPDF Library]
-        F -->|@tool send_receipt_email| H[Amazon SES]
-        F -->|@tool search_archive| I[DynamoDB Query]
-    end
-    
-    subgraph "Storage Layer"
-        G -->|PDF Upload| J[S3: receipts/]
-        D -->|Archive File| K[S3: processed_messages/]
-        I -->|Metadata| L[DynamoDB: PantryTable]
-    end
-    
-    subgraph "Presentation Layer"
-        M[Next.js Dashboard] -->|Scan Inbox| D
-        M -->|View Receipt| J
-        M -->|Search| I
-    end
-    
-    H -->|Notify Volunteers| N[SNS/Email]
+    A[S3 Bucket<br/>received_voice/] -->|Transcribe| B[S3 Bucket<br/>received_messages/]
+    C[S3 Bucket<br/>SMS/Email Files] --> B
+    B -->|HTTP GET /scan| D[Lambda Function<br/>Pipeline Orchestrator]
+    D -->|Parse JSON| E[Amazon Bedrock<br/>Nova Pro]
+    E -->|Structured Data| D
+    D -->|HTTP POST /approve| F[Strands Agent<br/>AI Core]
+    F -->|Generate PDF| G[FPDF Library]
+    F -->|Send Email| H[Amazon SES]
+    F -->|Search Records| I[DynamoDB]
+    G -->|Upload PDF| J[S3 Bucket<br/>receipts/]
+    D -->|Archive| K[S3 Bucket<br/>processed_messages/]
+    I <-->|Store Metadata| L[DynamoDB<br/>PantryTable]
+    M[Next.js Dashboard] -->|User Actions| D
+    M -->|View PDF| J
+    M -->|Search| I
+    H -->|Notify| N[Volunteers<br/>SNS/Email]
 ```
 
 ---
