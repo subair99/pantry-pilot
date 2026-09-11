@@ -135,6 +135,6 @@ Open `http://localhost:3000` in your browser.
 - **Track:** Agents for Humans (Good Neighbor / Everyday Agents)
 - **Team:** AbdulKabir
 - **Built with:** Strands Agents SDK, AWS CDK, Amazon Bedrock, Next.js, Python
-- **Repository:** [[Link to your GitHub Repo](https://github.com/subair99/pantry-pilot)]
+- **Repository:** [Link to GitHub Repo](https://github.com/subair99/pantry-pilot)
 
 ---
