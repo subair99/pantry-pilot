@@ -1,7 +1,7 @@
 "use client";
 
 import { Bigelow_Rules } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface PendingMessage {
   filename: string;
@@ -38,13 +38,22 @@ export default function Dashboard() {
   const [archivedReceipts, setArchivedReceipts] = useState<ArchivedReceipt[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState("Ready");
+  const [status, setStatus] = useState("Ready - Click Scan to begin");
   const [approvedFilenames, setApprovedFilenames] = useState<Set<string>>(new Set());
 
   const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT || "http://localhost:3000";
 
-  // ✅ Manual scan only
+  // ✅ UPDATED: Refresh page before scanning
   const fetchMessages = async () => {
+    // Refresh the page to clear any stale state
+    window.location.reload();
+    
+    // The page will reload, so this code won't execute
+    // The useEffect below will handle the scan after reload
+  };
+
+  // Scan automatically after page load (triggered by refresh)
+  const scanAfterLoad = async () => {
     setIsLoading(true);
     setStatus("Scanning inbox and transcribing voice notes...");
     try {
@@ -62,10 +71,10 @@ export default function Dashboard() {
     }
   };
 
-  // Only scan ONCE when the page loads
-  useEffect(() => { 
-    fetchMessages(); 
-  }, []);
+  // Auto-scan on page load
+  useState(() => { 
+    scanAfterLoad(); 
+  });
 
   const handleApprove = async (msg: PendingMessage) => {
     if (approvedFilenames.has(msg.filename) || isLoading) return;
@@ -141,10 +150,10 @@ export default function Dashboard() {
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-3xl mx-auto">
         
-        {/* ✅ CLEAN HEADER: Only Scan Inbox button remains */}
+        {/* HEADER with Scan button */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">📦 PantryPilot</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900"> PantryPilot</h1>
             <p className="text-sm md:text-base text-gray-600 mt-1">Approval Pipeline</p>
           </div>
           <div className="flex gap-2">
@@ -153,7 +162,7 @@ export default function Dashboard() {
               disabled={isLoading}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2"
             >
-              {isLoading ? 'Scanning...' : '🔄 Scan Inbox'}
+              {isLoading ? 'Refreshing...' : ' Scan Inbox'}
             </button>
           </div>
         </div>
@@ -171,7 +180,7 @@ export default function Dashboard() {
         <div className="grid gap-3 mb-8">
           {messages.length === 0 && !isLoading && (
             <div className="text-center py-6 bg-white rounded-lg border border-gray-200 border-dashed">
-              <p className="text-gray-500">All caught up!</p>
+              <p className="text-gray-500">Click "Scan Inbox" to check for new messages</p>
             </div>
           )}
           {messages.map((msg, idx) => (
@@ -209,7 +218,7 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-mono text-xs font-bold text-gray-700 bg-gray-200 px-2 py-0.5 rounded">{receipt.donation_id}</span>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded ${receipt.status === "SENT" ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
-                          {receipt.status === "SENT" ? "✅ SENT" : "⏳ PENDING"}
+                          {receipt.status === "SENT" ? "✅ SENT" : " PENDING"}
                         </span>
                       </div>
                       <h3 className="text-base font-bold text-gray-900">{receipt.donor}</h3>
@@ -265,7 +274,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-mono text-xs font-bold text-gray-700 bg-white px-2 py-0.5 rounded border">{item.donation_id}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${item.status === 'SENT_TO_DONOR' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                      {item.status === 'SENT_TO_DONOR' ? '✅ SENT' : '⏳ PENDING'}
+                      {item.status === 'SENT_TO_DONOR' ? '✅ SENT' : ' PENDING'}
                     </span>
                   </div>
                   <h4 className="font-bold text-gray-900 text-sm mb-1">{item.donor}</h4>

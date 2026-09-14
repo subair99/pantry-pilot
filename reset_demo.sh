@@ -31,9 +31,19 @@ echo "   ✅ receipts/ folder cleared."
 
 # 4. Delete specific voice transcription files in S3 received_messages/
 echo "4️⃣  Deleting specific voice transcription files from received_messages/..."
-aws s3 rm "s3://$BUCKET_NAME/received_messages/+15551232_voice_marcus.txt"
 aws s3 rm "s3://$BUCKET_NAME/received_messages/+15551233_voice_bill.txt"
 echo "   ✅ Specific voice files deleted."
 
+# 5. ✅ RECREATE ALL FOLDERS IMMEDIATELY (Using touch)
+echo "5️⃣  Recreating S3 folders so they remain visible..."
+touch .keep
+aws s3 cp .keep "s3://$BUCKET_NAME/received_voice/.keep"
+aws s3 cp .keep "s3://$BUCKET_NAME/received_messages/.keep"
+aws s3 cp .keep "s3://$BUCKET_NAME/processed_messages/.keep"
+aws s3 cp .keep "s3://$BUCKET_NAME/receipts/.keep"
+rm .keep
+echo "   ✅ All folders recreated and visible in S3 Console."
+
 echo "---------------------------------------------------"
 echo "🎉 Reset Complete! Your demo environment is fresh."
+echo "💡 Next Step: Open the Dashboard and click '🔄 Scan Inbox'."
