@@ -128,7 +128,7 @@ Open `http://localhost:3000` in your browser.
 
 ## Demo Video
 
-[![Watch it here](images/video-thumbnail.png)](https://youtu.be/x2_reUGsFzo?si=m6iSPKpjZvE8q-Qa)
+[![Watch it here](images/video-thumbnail.png)](https://youtu.be/vYFxmFtJATQ)
 
 ---
 
